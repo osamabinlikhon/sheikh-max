@@ -28,9 +28,9 @@ print(f"Loading model and tokenizer with Unsloth: {model_id}...")
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=model_id,
     max_seq_length=512,  # Consistent with dataset tokenization max_length
-    dtype=torch.float16,  # Changed to float16 as device does not support bfloat16
-    load_in_4bit=True,  # Unsloth will handle 4-bit quantization
-    gpu_memory_utilization=0.85,  # Attempt to limit GPU memory usage further for stream overhead
+    dtype=torch.float16,  # Use float16 for T4 compatibility
+    load_in_4bit=True,  # Unsloth handles 4-bit quantization optimally
+    # Removed gpu_memory_utilization to let Unsloth manage memory automatically
 )
 
 # Set pad_token if not already set (often needed for generation tasks)
