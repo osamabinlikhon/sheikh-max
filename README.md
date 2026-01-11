@@ -181,6 +181,29 @@ print(tokenizer.batch_decode(outputs)[0])
 
 ---
 
+## 🔄 CI/CD with GitHub Actions
+
+Sheikh-Max uses GitHub Actions for automated workflows from idea to production.
+
+### Quickstart
+1. **Push Code:** Triggers CI (linting, testing, building).
+2. **PR Review:** Automated checks ensure quality.
+3. **Release:** Publish to PyPI and HF on release.
+
+### Workflows
+- **CI/CD (`python-ci.yml`)**: Lints, tests, builds package.
+- **Release (`release.yml`)**: Validates and deploys on release.
+- **Package Publish (`publish-package.yml`)**: Publishes to PyPI.
+
+### Understanding
+- **Continuous Integration:** Every push runs tests.
+- **Continuous Deployment:** Releases auto-deploy.
+- **vs GitHub Apps:** Actions automate repos; Apps extend GitHub.
+
+See `.github/workflows/` for details.
+
+---
+
 ## 🤝 Contributing & Acknowledgements
 
 This model is a community effort to bring reasoning capabilities to smaller hardware.
