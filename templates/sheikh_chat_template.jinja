@@ -1,0 +1,38 @@
+{{ bos_token }}
+{%- for message in messages %}
+    {%- if message['role'] == 'system' %}
+        {%- if message['content'] %}
+            {%- set role_prefix = message['content'].strip() + '\n\n' %}
+        {%- else %}
+            {%- set role_prefix = "" %}
+        {%- endif %}
+    {%- elif message['role'] == 'user' %}
+        {%- if loop.first and system_message %}
+            {%- set content = system_message + '\n\n' + message['content'] %}
+        {%- else %}
+            {%- set content = message['content'] %}
+        {%- endif %}
+        {%- if content %}
+            {%- set role_prefix = '### Instruction:\n' + content.strip() + '\n\n### Response:\n' %}
+        {%- else %}
+            {%- set role_prefix = "### Instruction:\n\n### Response:\n" %}
+        {%- endif %}
+    {%- elif message['role'] == 'assistant' %}
+        {%- if message['content'] %}
+            {%- set content = message['content'] %}
+        {%- else %}
+            {%- set content = "" %}
+        {%- endif %}
+        {%- set role_prefix = content.strip() + eos_token + '\n' %}
+    {%- endif %}
+    {{- role_prefix }}
+{%- endfor %}
+{%- if add_generation_prompt %}
+    {%- if messages[-1]['role'] != 'assistant' %}
+        {%- if messages[-1]['role'] == 'system' and not messages[-1]['content'] %}
+            ### Instruction:\n\n### Response:\n
+        {%- else %}
+            ### Instruction:\n\n### Response:\n
+        {%- endif %}
+    {%- endif %}
+{%- endif %}
