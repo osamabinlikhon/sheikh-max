@@ -23,14 +23,13 @@ gc.collect()
 
 # -----------------------------------------------------------------------------------
 # 1. Load the base model and tokenizer using Unsloth's optimized methods
-model_id = "unsloth/Mistral-7B-Instruct-v0.2-bnb-4bit"
+model_id = "unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit"
 print(f"Loading model and tokenizer with Unsloth: {model_id}...")
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=model_id,
     max_seq_length=512,  # Consistent with dataset tokenization max_length
     dtype=torch.float16,  # Use float16 for T4 compatibility
     load_in_4bit=True,  # Unsloth handles 4-bit quantization optimally
-    # Removed gpu_memory_utilization to let Unsloth manage memory automatically
 )
 
 # Set pad_token if not already set (often needed for generation tasks)

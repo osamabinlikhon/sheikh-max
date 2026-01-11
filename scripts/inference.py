@@ -7,7 +7,7 @@ Loads the merged safetensors model and verifies interleaved thinking.
 from unsloth import FastLanguageModel
 import torch
 
-def load_model(model_path="sheikh-ai/mistral-7b-sheikh-chat-merged"):  # Update with your HF repo
+def load_model(model_path="OsamaBinLikhon/sheikh-max"):  # Update with your HF repo after training
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=model_path,
         max_seq_length=512,
