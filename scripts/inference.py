@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
 Inference script for Sheikh-Max model
+Loads the merged safetensors model and verifies interleaved thinking.
 """
 
 from unsloth import FastLanguageModel
 import torch
 
-def load_model(model_path="unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit", lora_path=None):
+def load_model(model_path="sheikh-ai/mistral-7b-sheikh-chat-merged"):  # Update with your HF repo
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=model_path,
-        load_in_4bit=True
+        max_seq_length=512,
+        dtype=torch.float16,
+        load_in_4bit=True,
     )
-    if lora_path:
-        model = FastLanguageModel.get_peft_model(model, r=16)
-        model.load_adapter(lora_path)
     FastLanguageModel.for_inference(model)
     return model, tokenizer
 
@@ -36,6 +36,13 @@ def generate_response(model, tokenizer, prompt):
     return tokenizer.batch_decode(outputs)[0]
 
 if __name__ == "__main__":
-    model, tokenizer = load_model(lora_path="outputs/checkpoint-60")
-    response = generate_response(model, tokenizer, "Write a hello world in Python.")
+    model, tokenizer = load_model()
+    response = generate_response(model, tokenizer, "Write a Python function to calculate factorial with reasoning.")
+    print("Generated Response:")
     print(response)
+    
+    # Check for <think> tags
+    if "<think>" in response and "</think>" in response:
+        print("✅ Interleaved thinking detected!")
+    else:
+        print("❌ No interleaved thinking found.")
