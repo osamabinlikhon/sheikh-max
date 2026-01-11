@@ -50,7 +50,60 @@ This project proves that you don't need H100 GPUs to build frontier-class intell
 
 ---
 
-## 💡 Example Output
+## �️ Building the Workspace
+
+To set up and train Sheikh-Max from scratch, follow these steps:
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/osamabinlikhon/sheikh-max.git
+cd sheikh-max
+```
+
+### 2. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Project Structure
+```
+sheikh-max/
+├── notebooks/          # Colab notebooks for training
+├── data/               # Dataset processing scripts
+├── templates/          # Jinja2 chat templates
+├── outputs/            # Training checkpoints
+├── scripts/            # Utility scripts (push_to_hub.py, inference.py)
+├── requirements.txt    # Python dependencies
+├── AGENTS.md           # Project guidelines
+└── README.md           # This file
+```
+
+### 4. Train the Model
+- Open `notebooks/train_sheikh_max.ipynb` in Google Colab.
+- Mount your Google Drive and adjust paths if necessary.
+- Run all cells to fine-tune the model.
+- The notebook handles:
+  - Installing libraries
+  - Loading the base Qwen 2.5 Coder model
+  - Preparing the dataset with interleaved thinking format
+  - Fine-tuning with QLoRA on T4 GPU
+  - Testing the model for `<think>` tags
+
+### 5. Push to Hugging Face
+After training, use the script to upload your LoRA adapters:
+```bash
+python scripts/push_to_hub.py
+```
+
+### 6. Inference
+Test your trained model:
+```bash
+python scripts/inference.py
+```
+
+---
+
+## �💡 Example Output
 
 **User:** "Write a Python script to verify if a number is prime using recursion."
 
@@ -125,6 +178,29 @@ print(tokenizer.batch_decode(outputs)[0])
 *   **Hardware:** Google Colab Tesla T4 (1 GPU).
 *   **Technique:** QLoRA (Rank 16, Alpha 16).
 *   **Optimizer:** AdamW 8-bit.
+
+---
+
+## 🔄 CI/CD with GitHub Actions
+
+Sheikh-Max uses GitHub Actions for automated workflows from idea to production.
+
+### Quickstart
+1. **Push Code:** Triggers CI (linting, testing, building).
+2. **PR Review:** Automated checks ensure quality.
+3. **Release:** Publish to PyPI and HF on release.
+
+### Workflows
+- **CI/CD (`python-ci.yml`)**: Lints, tests, builds package.
+- **Release (`release.yml`)**: Validates and deploys on release.
+- **Package Publish (`publish-package.yml`)**: Publishes to PyPI.
+
+### Understanding
+- **Continuous Integration:** Every push runs tests.
+- **Continuous Deployment:** Releases auto-deploy.
+- **vs GitHub Apps:** Actions automate repos; Apps extend GitHub.
+
+See `.github/workflows/` for details.
 
 ---
 

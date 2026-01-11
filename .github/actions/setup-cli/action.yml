@@ -1,0 +1,25 @@
+name: 'Setup CLI'
+description: 'Set up CLI tools for Sheikh-Max workflows'
+inputs:
+  python-version:
+    description: 'Python version to set up'
+    required: false
+    default: '3.10'
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install CLI dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install huggingface_hub wandb
+    - name: Verify CLI
+      shell: bash
+      run: |
+        python --version
+        pip --version
+        echo "CLI setup complete"

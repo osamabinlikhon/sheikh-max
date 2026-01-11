@@ -1,0 +1,10 @@
+unsloth
+transformers
+peft
+trl
+bitsandbytes
+wandb
+torch
+accelerate
+datasets
+jinja2

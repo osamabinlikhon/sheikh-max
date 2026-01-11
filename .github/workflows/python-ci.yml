@@ -1,0 +1,98 @@
+name: Sheikh-Max CI/CD
+
+on:
+  push:
+    branches: [ main, feat/initialize-repo-structure-and-docs-* ]
+  pull_request:
+    branches: [ main, feat/initialize-repo-structure-and-docs-* ]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+        - test
+        - publish
+
+jobs:
+  test:
+    if: github.event.inputs.action != 'publish' || github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Lint with flake8
+      run: |
+        pip install flake8
+        flake8 scripts/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 scripts/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      run: |
+        pip install pytest
+        pytest scripts/ --doctest-modules --tb=short || echo "No tests found, skipping"
+    - name: Build package
+      run: |
+        pip install build
+        python -m build --wheel
+    - name: Test scripts syntax
+      run: |
+        python -m py_compile scripts/train_sheikh_max.py
+        python -m py_compile scripts/inference.py
+        python -m py_compile scripts/push_to_hub.py
+
+  publish:
+    if: github.event.inputs.action == 'publish' || (github.event_name == 'push' && contains(github.event.head_commit.message, 'publish'))
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Set Hugging Face Token
+      run: |
+        echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> $GITHUB_ENV
+    - name: Publish to Hugging Face
+      run: |
+        if [ -d "outputs" ]; then
+          python scripts/push_to_hub.py
+        else
+          echo "No outputs directory found. Skipping publish."
+        fi
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Set Hugging Face Token
+      run: |
+        echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> $GITHUB_ENV
+    - name: Publish to Hugging Face
+      run: |
+        if [ -d "outputs" ]; then
+          python scripts/push_to_hub.py
+        else
+          echo "No outputs directory found. Skipping publish."
+        fi

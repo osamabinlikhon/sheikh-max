@@ -1,0 +1,17 @@
+{
+  "name": "Sheikh-Max Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/cuda:1": {
+      "installCudnn": true,
+      "cudaVersion": "12.2",
+      "cudnnVersion": "8.9"
+    }
+  },
+  "customizations": {
+    "codespaces": {
+      "machine": "standardLinux32gbGpu"
+    }
+  },
+  "postCreateCommand": "pip install -r requirements.txt"
+}

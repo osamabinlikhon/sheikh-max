@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sheikh-max"
+version = "0.1.0"
+description = "Fine-tuned LLM with interleaved thinking for coding assistance"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "unsloth",
+    "transformers",
+    "peft",
+    "trl",
+    "bitsandbytes",
+    "wandb",
+    "torch",
+    "accelerate",
+    "datasets",
+    "jinja2",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/osamabinlikhon/sheikh-max"
+"Bug Reports" = "https://github.com/osamabinlikhon/sheikh-max/issues"
+"Source" = "https://github.com/osamabinlikhon/sheikh-max"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scripts*"]
