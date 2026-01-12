@@ -68,37 +68,70 @@ pip install -r requirements.txt
 ### 3. Project Structure
 ```
 sheikh-max/
-├── notebooks/          # Colab notebooks for training
-├── data/               # Dataset processing scripts
-├── templates/          # Jinja2 chat templates
-├── outputs/            # Training checkpoints
-├── scripts/            # Utility scripts (push_to_hub.py, inference.py)
-├── requirements.txt    # Python dependencies
-├── AGENTS.md           # Project guidelines
-└── README.md           # This file
+├── notebooks/              # Colab notebooks for training
+│   └── train_sheikh_max.ipynb
+├── data/                   # Prepared datasets
+├── templates/              # Jinja2 chat templates with <think> tag support
+│   └── sheikh_chat_template.jinja
+├── scripts/                # Python scripts
+│   ├── train_sheikh_max.py # Main training script
+│   ├── inference.py        # Run inference with trained model
+│   ├── prepare_data.py     # Dataset preparation utilities
+│   ├── push_to_hub.py      # Push model to HuggingFace
+│   └── test_template.py    # Test chat template formatting
+├── results/                # Training checkpoints (created during training)
+├── requirements.txt        # Python dependencies
+├── pyproject.toml          # Package configuration
+├── AGENTS.md               # AI agent guidelines
+└── README.md               # This file
 ```
 
-### 4. Train the Model
-- Open `notebooks/train_sheikh_max.ipynb` in Google Colab.
-- Mount your Google Drive and adjust paths if necessary.
-- Run all cells to fine-tune the model.
-- The notebook handles:
-  - Installing libraries
-  - Loading the base Qwen 2.5 Coder model
-  - Preparing the dataset with interleaved thinking format
-  - Fine-tuning with QLoRA on T4 GPU
-  - Testing the model for `<think>` tags
-
-### 5. Push to Hugging Face
-After training, use the script to upload your LoRA adapters:
+### 4. Prepare Dataset (Optional)
+Prepare a custom dataset with interleaved thinking format:
 ```bash
-python scripts/push_to_hub.py
+# Create sample dataset for testing
+python scripts/prepare_data.py --sample --output ./data/sample
+
+# Or load from HuggingFace
+python scripts/prepare_data.py --dataset bespokelabs/Bespoke-Stratos-17k --max-samples 1000
 ```
 
-### 6. Inference
+### 5. Train the Model
+**Option A: Google Colab (Recommended)**
+- Open `notebooks/train_sheikh_max.ipynb` in Google Colab
+- Mount your Google Drive and adjust paths if necessary
+- Run all cells to fine-tune the model
+
+**Option B: Local/Server Training**
+```bash
+# Set environment variables
+export HF_TOKEN="your_huggingface_token"
+export WANDB_API_KEY="your_wandb_key"  # Optional
+
+# Run training
+python scripts/train_sheikh_max.py
+```
+
+### 6. Push to Hugging Face
+After training, upload your LoRA adapters:
+```bash
+python scripts/push_to_hub.py --model-path ./results/final --repo-name your-username/sheikh-max
+```
+
+### 7. Inference
 Test your trained model:
 ```bash
+# With default prompt
 python scripts/inference.py
+
+# With custom prompt
+python scripts/inference.py --prompt "Write a binary search function" --model OsamaBinLikhon/sheikh-max
+```
+
+### 8. Test Template
+Verify the chat template is working correctly:
+```bash
+python scripts/test_template.py
 ```
 
 ---

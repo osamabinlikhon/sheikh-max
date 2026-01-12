@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
 Sheikh-Max Training Script
-Fine-tunes Mistral-7B-Instruct-v0.2 with interleaved thinking on a dummy dataset.
+Fine-tunes Qwen2.5-Coder-7B with interleaved thinking (reasoning in <think> tags).
 Optimized for Google Colab T4 GPU with 4-bit quantization and QLoRA.
 """
 
 import os
+import gc
 import torch
 from unsloth import FastLanguageModel
 from trl import SFTTrainer
@@ -15,43 +16,60 @@ from datasets import Dataset
 # Set environment variable to enable expandable memory segments for PyTorch
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-# --- Explicitly clear memory from previous attempts if any models are still loaded ---
+# Clear GPU memory from previous runs
 print("Clearing GPU memory from previous runs...")
 torch.cuda.empty_cache()
-import gc
 gc.collect()
 
 # -----------------------------------------------------------------------------------
 # 1. Load the base model and tokenizer using Unsloth's optimized methods
-model_id = "unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit"
-print(f"Loading model and tokenizer with Unsloth: {model_id}...")
+MODEL_ID = "unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit"
+MAX_SEQ_LENGTH = 512
+
+print(f"Loading model and tokenizer with Unsloth: {MODEL_ID}...")
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name=model_id,
-    max_seq_length=512,  # Consistent with dataset tokenization max_length
-    dtype=torch.float16,  # Use float16 for T4 compatibility
-    load_in_4bit=True,  # Unsloth handles 4-bit quantization optimally
+    model_name=MODEL_ID,
+    max_seq_length=MAX_SEQ_LENGTH,
+    dtype=torch.float16,  # Use float16 for T4 compatibility (no bf16 support)
+    load_in_4bit=True,
 )
 
-# Set pad_token if not already set (often needed for generation tasks)
+# Set pad_token if not already set
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-# Assign the defined sheikh_chat_template to the tokenizer's chat_template attribute
-sheikh_chat_template = (
-    "{% for message in messages %}"
-    "{% if message['role'] == 'system' %}"
-    "[INST] <<SYS>>\n{{ message['content'] }}\n<</SYS>>\n"
-    "{% elif message['role'] == 'user' %}"
-    "[INST] {{ message['content'] }} [/INST]"
-    "{% elif message['role'] == 'assistant' %}"
-    "{% if message['thinking'] %}"
-    "<think>{{ message['thinking'] }}</think>"
-    "{% endif %}"
-    "{{ message['content'] }} "  # Added space for separation if thinking and content both exist
-    "{% endif %}"
-    "{% endfor %}"
-    "{{ eos_token }}"
-)
+# Load the Sheikh-Max chat template with <think> tag support
+TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "templates", "sheikh_chat_template.jinja")
+if os.path.exists(TEMPLATE_PATH):
+    with open(TEMPLATE_PATH, "r") as f:
+        sheikh_chat_template = f.read()
+    print(f"Loaded chat template from {TEMPLATE_PATH}")
+else:
+    # Fallback inline template if file not found
+    sheikh_chat_template = """{{- bos_token }}
+{%- for message in messages %}
+    {%- if message['role'] == 'system' %}
+        {%- if message['content'] %}
+{{- '### System:\\n' + message['content'].strip() + '\\n\\n' }}
+        {%- endif %}
+    {%- elif message['role'] == 'user' %}
+{{- '### Instruction:\\n' + message['content'].strip() + '\\n\\n' }}
+    {%- elif message['role'] == 'assistant' %}
+{{- '### Response:\\n' }}
+        {%- if message.get('thinking') %}
+{{- '<think>\\n' + message['thinking'].strip() + '\\n</think>\\n\\n' }}
+        {%- endif %}
+        {%- if message['content'] %}
+{{- message['content'].strip() }}
+        {%- endif %}
+{{- eos_token + '\\n\\n' }}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+{{- '### Response:\\n' }}
+{%- endif %}"""
+    print("Using fallback inline chat template")
+
 print("Assigning custom chat template to tokenizer...")
 tokenizer.chat_template = sheikh_chat_template
 
@@ -123,28 +141,29 @@ model = FastLanguageModel.get_peft_model(
 )
 
 # Set the Hugging Face repository name
-hub_model_name = "mistral-7b-sheikh-chat"
-hf_username = os.getenv("HF_USERNAME", "sheikh-ai")
-hub_model_id = f"{hf_username}/{hub_model_name}"
+HUB_MODEL_NAME = "sheikh-max"
+HF_USERNAME = os.getenv("HF_USERNAME", "OsamaBinLikhon")
+HUB_MODEL_ID = f"{HF_USERNAME}/{HUB_MODEL_NAME}"
 
 # 4. Configure TrainingArguments
 print("Configuring TrainingArguments...")
 training_arguments = TrainingArguments(
     output_dir="./results",
-    per_device_train_batch_size=2,
-    gradient_accumulation_steps=2,
-    optim="paged_adamw_32bit",
+    per_device_train_batch_size=2,  # Keep low for T4 15GB VRAM
+    gradient_accumulation_steps=4,  # Effective batch size = 2 * 4 = 8
+    optim="adamw_8bit",  # Use 8-bit AdamW for memory efficiency
     logging_steps=10,
     learning_rate=2e-4,
-    fp16=True,
+    fp16=True,  # T4 doesn't support bf16
     max_steps=500,
-    push_to_hub=True,
-    report_to="wandb",
-    save_strategy="epoch",
-    hub_model_id=hub_model_id,
+    push_to_hub=bool(os.environ.get("HF_TOKEN")),
+    report_to="wandb" if os.environ.get("WANDB_API_KEY") else "none",
+    save_strategy="steps",
+    save_steps=100,
+    hub_model_id=HUB_MODEL_ID,
     hub_private_repo=False,
     remove_unused_columns=True,
-    gradient_checkpointing=True,
+    gradient_checkpointing=True,  # Essential for T4 memory
     warmup_ratio=0.03,
     lr_scheduler_type="cosine",
     hub_token=os.environ.get("HF_TOKEN"),
@@ -157,24 +176,31 @@ trainer = SFTTrainer(
     tokenizer=tokenizer,
     args=training_arguments,
     train_dataset=tokenized_dataset,
-    max_seq_length=512,
+    max_seq_length=MAX_SEQ_LENGTH,
 )
 
 # 6. Start the fine-tuning process
 print("Starting fine-tuning...")
 trainer.train()
 
-# 7. Push the fine-tuned model and tokenizer to the Hugging Face Hub
-print(f"Pushing model to Hugging Face Hub: {hub_model_id}...")
-trainer.push_to_hub()
+# 7. Save locally first
+print("Saving model locally...")
+trainer.save_model("./results/final")
 
-# 8. Merge and push the full model in safetensors format
-print("Merging LoRA adapters and pushing full model in safetensors...")
-model.push_to_hub_merged(
-    hub_model_id + "-merged",
-    tokenizer,
-    save_method="merged_16bit",
-    token=os.environ.get("HF_TOKEN")
-)
+# 8. Push to Hugging Face Hub if token is available
+if os.environ.get("HF_TOKEN"):
+    print(f"Pushing model to Hugging Face Hub: {HUB_MODEL_ID}...")
+    trainer.push_to_hub()
 
-print("Training complete! Model pushed to HF.")
+    # 9. Merge and push the full model in safetensors format
+    print("Merging LoRA adapters and pushing full model in safetensors...")
+    model.push_to_hub_merged(
+        HUB_MODEL_ID + "-merged",
+        tokenizer,
+        save_method="merged_16bit",
+        token=os.environ.get("HF_TOKEN")
+    )
+    print(f"✅ Training complete! Model pushed to {HUB_MODEL_ID}")
+else:
+    print("⚠️ HF_TOKEN not set. Model saved locally but not pushed to Hub.")
+    print("✅ Training complete! Model saved to ./results/final")

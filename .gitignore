@@ -131,6 +131,7 @@ dmypy.json
 # Machine Learning / AI
 outputs/
 checkpoints/
+results/
 logs/
 wandb/
 *.h5
@@ -141,6 +142,9 @@ wandb/
 *.pt
 *.bin
 *.safetensors
+
+# Prepared datasets (can be large)
+data/
 
 # IDE
 .vscode/
