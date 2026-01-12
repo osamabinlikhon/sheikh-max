@@ -1,0 +1,25 @@
+{{- bos_token }}
+{%- for message in messages %}
+    {%- if message['role'] == 'system' %}
+        {%- if message['content'] %}
+{{- '### System:\n' + message['content'].strip() + '\n\n' }}
+        {%- endif %}
+    {%- elif message['role'] == 'user' %}
+{{- '### Instruction:\n' + message['content'].strip() + '\n\n' }}
+    {%- elif message['role'] == 'assistant' %}
+{{- '### Response:\n' }}
+        {%- if message.get('thinking') %}
+{{- '<think>\n' }}
+{{- '🛡️ **Security Analysis**\n' }}
+{{- message['thinking'].strip() + '\n' }}
+{{- '</think>\n\n' }}
+        {%- endif %}
+        {%- if message['content'] %}
+{{- message['content'].strip() }}
+        {%- endif %}
+{{- eos_token + '\n\n' }}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+{{- '### Response:\n<think>\n🛡️ **Security Analysis**\n' }}
+{%- endif %}
