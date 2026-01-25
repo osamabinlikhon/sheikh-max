@@ -12,11 +12,15 @@ Security-First Approach:
 
 import os
 import gc
+import argparse
 import torch
 from unsloth import FastLanguageModel
 from trl import SFTTrainer
 from transformers import TrainingArguments
 from datasets import Dataset
+
+# Centralized training configuration utilities
+from train_config import build_training_arguments
 
 # Import security metrics if available
 try:
@@ -26,6 +30,16 @@ except ImportError:
     SECURITY_METRICS_AVAILABLE = False
     print("⚠️ Security metrics not available. Using standard training.")
 
+# Parse CLI args for runtime overrides (e.g., on CI or Colab)
+parser = argparse.ArgumentParser(description="Train Sheikh-Max (QLoRA/Unsloth optimized)")
+parser.add_argument("--per-device-train-batch-size", type=int, default=None, help="Per-device train batch size")
+parser.add_argument("--grad-accum", type=int, default=None, help="Gradient accumulation steps")
+parser.add_argument("--max-steps", type=int, default=None, help="Max training steps")
+parser.add_argument("--no-unsloth", action="store_true", help="Don't use Unsloth for loading (use transformers fallback)")
+parser.add_argument("--hf-token", type=str, default=None, help="Hugging Face token (overrides env HF_TOKEN)")
+parser.add_argument("--dry-run", action="store_true", help="Print training config and exit")
+args = parser.parse_args()
+
 # Set environment variable to enable expandable memory segments for PyTorch
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
@@ -33,6 +47,10 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 print("Clearing GPU memory from previous runs...")
 torch.cuda.empty_cache()
 gc.collect()
+
+# Apply HF token override if provided
+if args.hf_token:
+    os.environ["HF_TOKEN"] = args.hf_token
 
 # -----------------------------------------------------------------------------------
 # 1. Load the base model and tokenizer using Unsloth's optimized methods
@@ -430,27 +448,25 @@ HUB_MODEL_ID = f"{HF_USERNAME}/{HUB_MODEL_NAME}"
 
 # 4. Configure TrainingArguments
 print("Configuring TrainingArguments...")
-training_arguments = TrainingArguments(
-    output_dir="./results",
-    per_device_train_batch_size=2,  # Keep low for T4 15GB VRAM
-    gradient_accumulation_steps=4,  # Effective batch size = 2 * 4 = 8
-    optim="adamw_8bit",  # Use 8-bit AdamW for memory efficiency
-    logging_steps=10,
-    learning_rate=2e-4,
-    fp16=True,  # T4 doesn't support bf16
-    max_steps=500,
-    push_to_hub=bool(os.environ.get("HF_TOKEN")),
-    report_to="wandb" if os.environ.get("WANDB_API_KEY") else "none",
-    save_strategy="steps",
-    save_steps=100,
-    hub_model_id=HUB_MODEL_ID,
-    hub_private_repo=False,
-    remove_unused_columns=True,
-    gradient_checkpointing=True,  # Essential for T4 memory
-    warmup_ratio=0.03,
-    lr_scheduler_type="cosine",
-    hub_token=os.environ.get("HF_TOKEN"),
-)
+# Allow CLI overrides from args parsed earlier
+overrides = {}
+if args.per_device_train_batch_size:
+    overrides["per_device_train_batch_size"] = args.per_device_train_batch_size
+if args.grad_accum:
+    overrides["gradient_accumulation_steps"] = args.grad_accum
+if args.max_steps:
+    overrides["max_steps"] = args.max_steps
+# Ensure safe dtype settings for T4; build_training_arguments will enforce bf16=False by default
+training_arguments = build_training_arguments(**overrides)
+
+# If dry-run requested, print the configuration and exit early
+if args.dry_run:
+    print("Dry run: TrainingArguments preview")
+    for k, v in vars(training_arguments).items():
+        print(f"{k}: {v}")
+    print("Dry run complete. Exiting.")
+    import sys
+    sys.exit(0)
 
 # 5. Initialize the SFTTrainer
 print("Initializing SFTTrainer...")

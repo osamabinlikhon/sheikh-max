@@ -31,6 +31,29 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+    - name: BF16 usage detection
+      run: |
+        python - <<'PY'
+import re, sys, pathlib
+patterns = [r'\\bbf16\\b', r'\\bbfloat', r'\\bbfloat16\\b']
+bad_files = []
+for path in ['scripts', 'notebooks', '.github/workflows']:
+    for f in pathlib.Path(path).rglob('*'):
+        if f.is_file() and f.suffix in {'.py', '.ipynb', '.yml', '.yaml', '.md'}:
+            try:
+                t = f.read_text()
+            except Exception:
+                continue
+            for pat in patterns:
+                if re.search(pat, t, flags=re.IGNORECASE):
+                    bad_files.append(str(f))
+                    break
+if bad_files:
+    print('BF16 usage found in files:')
+    for bf in bad_files: print(' -', bf)
+    sys.exit(1)
+print('No BF16 usage detected')
+PY
     - name: Lint with flake8
       run: |
         pip install flake8
@@ -40,6 +63,18 @@ jobs:
       run: |
         pip install pytest
         pytest scripts/ --doctest-modules --tb=short || echo "No tests found, skipping"
+    - name: Check WANDB secret presence (non-failing)
+      env:
+        WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+      run: |
+        if [ -z "$WANDB_API_KEY" ]; then
+          echo "WANDB_API_KEY secret not set (OK for tests)."
+        else
+          echo "WANDB_API_KEY is set in repo secrets."
+        fi
+    - name: Mock inference smoke test
+      run: |
+        python scripts/inference_smoke.py --prompt "CI smoke test"
     - name: Build package
       run: |
         pip install build
@@ -68,6 +103,15 @@ jobs:
     - name: Set Hugging Face Token
       run: |
         echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> $GITHUB_ENV
+    - name: Require WANDB API key for publish
+      env:
+        WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+      run: |
+        if [ -z "$WANDB_API_KEY" ]; then
+          echo "ERROR: WANDB_API_KEY secret not set; required for publish job" >&2
+          exit 1
+        fi
+        echo "WANDB_API_KEY is set"
     - name: Publish to Hugging Face
       run: |
         if [ -d "outputs" ]; then
