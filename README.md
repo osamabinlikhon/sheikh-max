@@ -62,8 +62,34 @@ cd sheikh-max
 
 ### 2. Install Dependencies
 ```bash
+# Option A: Use global Python (not recommended)
 pip install -r requirements.txt
+
+# Option B: Use virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate
+pip install -U pip setuptools wheel
+pip install -r requirements.txt
+# Install developer tools (optional)
+pip install -r dev-requirements.txt
 ```
+
+### 3. Build & Run (Makefile)
+We've added a `Makefile` with common targets to run the pipeline:
+
+```bash
+# Setup env, prepare sample data, train and run tests
+make all
+
+# Or run individual targets
+make setup        # create venv and install deps
+make prepare-data # create sample dataset
+make train        # run training script
+make test         # run tests
+make inference    # generate a sample response
+make push         # upload model to HF (requires HF_TOKEN env var)
+```
+
 
 ### 3. Project Structure
 ```
@@ -103,14 +129,25 @@ python scripts/prepare_data.py --dataset bespokelabs/Bespoke-Stratos-17k --max-s
 - Run all cells to fine-tune the model
 
 **Option B: Local/Server Training**
+
+You can set secrets either via a local `.env` file (recommended for local runs) or via GitHub Secrets for CI.
+
+1) Using a local `.env` file (recommended for local development)
 ```bash
-# Set environment variables
-export HF_TOKEN="your_huggingface_token"
-export WANDB_API_KEY="your_wandb_key"  # Optional
+# Copy the example and edit
+cp .env.example .env
+# Edit .env and add your secrets (HF_TOKEN and optionally WANDB_API_KEY)
+source .env
 
 # Run training
 python scripts/train_sheikh_max.py
 ```
+
+2) Using GitHub repository secrets (recommended for CI / publish)
+- In GitHub: Settings → Secrets and variables → Actions → New repository secret
+  - Name: `HF_TOKEN`  Value: (your HF token)
+  - Name: `WANDB_API_KEY`  Value: (your W&B API key)
+
 
 ### 6. Push to Hugging Face
 After training, upload your LoRA adapters:
