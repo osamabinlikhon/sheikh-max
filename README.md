@@ -139,14 +139,40 @@ cp .env.example .env
 # Edit .env and add your secrets (HF_TOKEN and optionally WANDB_API_KEY)
 source .env
 
-# Run training
-python scripts/train_sheikh_max.py
+# Run training (recommended to run on a GPU, e.g., Colab T4)
+python scripts/train_sheikh_max.py --dry-run   # Preview training config
+python scripts/train_sheikh_max.py             # Start training
 ```
+
+Command-line options available for `scripts/train_sheikh_max.py`:
+- `--per-device-train-batch-size N` (default 2)
+- `--grad-accum N` (default 4)
+- `--max-steps N` (default 500)
+- `--hf-token TOKEN` (temporarily override HF_TOKEN env var)
+- `--dry-run` (print training config and exit)
+- `--no-unsloth` (force transformers fallback instead of Unsloth)
 
 2) Using GitHub repository secrets (recommended for CI / publish)
 - In GitHub: Settings → Secrets and variables → Actions → New repository secret
   - Name: `HF_TOKEN`  Value: (your HF token)
   - Name: `WANDB_API_KEY`  Value: (your W&B API key)
+
+---
+
+### Sanity Checks before training
+Run the lightweight preflight checks to ensure environment compatibility before starting a heavy fine-tune run (GPU, Torch, dtype settings):
+
+```bash
+python scripts/train_sanity_check.py
+```
+
+### Evaluation
+After training, evaluate the fine-tuned model on a prepared dataset (expects `data/<your_test>` in the prepared format):
+
+```bash
+python scripts/evaluate_model.py --model ./results/final --dataset ./data/sample --output ./results/eval_report.json
+```
+
 
 
 ### 6. Push to Hugging Face
